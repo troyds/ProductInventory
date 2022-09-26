@@ -1,0 +1,213 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Data.SqlClient;
+using System.Drawing;
+using System.Linq;
+using System.Runtime.Remoting.Channels;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace DataBaseTutProduct
+{
+    public partial class Form1 : Form
+    {
+        SqlConnection con = new SqlConnection("Data Source=(LocalDB)\\MSSQLLocalDB;Initial Catalog=DatabaseTutorial;Integrated Security=True");
+        string checkProduct;
+        bool isNumber = false;
+
+        public Form1()
+        {
+            InitializeComponent();
+            BindData();
+        }
+
+        private void btnAdd_Click(object sender, EventArgs e)
+        {
+            con.Open();
+            SqlCommand command = new SqlCommand("INSERT INTO ProductInfo_Tabs values ('" + int.Parse(txtbProductID.Text) + "','" + txtbItemName.Text + "','" + txtbDesign.Text + "', '" + comboColor.Text + "', getdate(), null, '"+numUpDownQuantity.Value+ "')", con);
+            command.ExecuteNonQuery();
+            MessageBox.Show("Successfully Added.");
+            con.Close();
+            BindData();
+        }
+
+        void BindData()
+        {
+            SqlCommand command = new SqlCommand("SELECT * FROM ProductInfo_Tabs", con);
+            SqlDataAdapter adapter = new SqlDataAdapter(command);
+            DataTable dt = new DataTable();
+            adapter.Fill(dt);
+            dataGridView1.DataSource = dt;
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            BindData();
+        }
+
+        private void btnUpdate_Click(object sender, EventArgs e)
+        {
+            con.Open();
+            SqlCommand command = new SqlCommand("UPDATE ProductInfo_Tabs SET ItemName = '" + txtbItemName.Text + "', Design = '" + txtbDesign.Text + "', Color = '" + comboColor.Text + "', UpdateDate = '" + DateTime.Parse(datePickerUpdate.Text) + "', Quantity = '" + numUpDownQuantity.Value + "' WHERE ProductID = '" + int.Parse(txtbProductID.Text) + "'", con);
+            command.ExecuteNonQuery();
+            con.Close();
+            MessageBox.Show("Successfully Updated.");
+            BindData();
+        }
+
+        private void btnDelete_Click(object sender, EventArgs e)
+        {
+            if (txtbProductID.Text != "")
+            {
+                if (MessageBox.Show("Are you sure you want to delete this item?", "Delete Record", MessageBoxButtons.YesNo) == DialogResult.Yes) {
+                    con.Open();
+                    SqlCommand command = new SqlCommand("DELETE ProductInfo_Tabs WHERE ProductID = '" + int.Parse(txtbProductID.Text) + "'", con);
+                    command.ExecuteNonQuery();
+                    con.Close();
+                    MessageBox.Show("Successfully Deleted.");
+                    BindData();
+                }
+            } else
+            {
+                MessageBox.Show("Please select an item to be deleted.", "Delete Record");
+            }
+        }
+
+        private void btnSearch_Click(object sender, EventArgs e)
+        {
+            float outputValue = 0;
+            string message;
+
+            isNumber = float.TryParse(txtbSearch.Text, out outputValue);
+
+            if (isNumber)
+            {
+                message = "SELECT * FROM ProductInfo_Tabs WHERE ProductID = '" + int.Parse(txtbSearch.Text) + "'";
+            }
+            else
+            {
+                message = "SELECT * FROM ProductInfo_Tabs WHERE ItemName = '" + txtbSearch.Text.ToLower() + "'";
+            }
+
+            bool isExist = isProductExist();
+
+            if (txtbSearch.Text == "")
+            {
+                MessageBox.Show("Please enter Product ID or Product Name in the Field", "Check");
+            } else
+            {
+                if (isExist == false)
+                {
+                    MessageBox.Show("No record found!", "Records");
+                }
+                else
+                {
+                    //SqlCommand command = new SqlCommand("SELECT * FROM ProductInfo_Tabs WHERE ProductID = '" + int.Parse(txtbSearch.Text) + "' OR ItemName = '" + txtbSearch.Text.ToLower() + "'", con);
+                    SqlCommand command = new SqlCommand(message, con);
+                    SqlDataAdapter adapter = new SqlDataAdapter(command);
+                    DataTable dt = new DataTable();
+                    adapter.Fill(dt);
+                    dataGridView1.DataSource = dt;
+                }
+            }
+        }
+
+        public bool isProductExist()
+        {
+            con.Open();
+            int productExist;
+            
+            if (isNumber)
+            {
+                checkProduct = "SELECT COUNT(*) FROM ProductInfo_Tabs WHERE (ProductID = @ID)";
+                SqlCommand checkProductExist = new SqlCommand(checkProduct, con);
+                checkProductExist.Parameters.AddWithValue("@ID", int.Parse(txtbSearch.Text));
+                productExist = (int)checkProductExist.ExecuteScalar();
+                con.Close();
+            } else
+            {
+
+                checkProduct = "SELECT COUNT(*) FROM ProductInfo_Tabs WHERE (ItemName = @itemName)";
+                SqlCommand checkProductExist = new SqlCommand(checkProduct, con);
+                checkProductExist.Parameters.AddWithValue("@itemName", txtbSearch.Text);
+                productExist = (int)checkProductExist.ExecuteScalar();
+                con.Close();
+            }
+
+            if (productExist > 0)
+                return true;
+            else
+                return false;
+            
+        }
+
+        private void txtbSearch_TextChanged(object sender, EventArgs e)
+        {
+            float outputValue = 0;
+            string message;
+            bool isNumber = false;
+
+            isNumber = float.TryParse(txtbSearch.Text, out outputValue);
+
+            
+            con.Open();
+
+            if (isNumber)
+            {
+                message = "SELECT ProductID, ItemName, Design, Color FROM ProductInfo_Tabs WHERE ProductID = @ID";
+            }
+            else
+            {
+                message = "SELECT ProductID, ItemName, Design, Color FROM ProductInfo_Tabs WHERE ItemName = @ItemName";
+            }
+
+            //SqlCommand command = new SqlCommand("SELECT ProductID, ItemName, Design, Color FROM ProductInfo_Tabs WHERE ProductID = @ID", con);
+            SqlCommand command = new SqlCommand(message, con);
+
+            if (isNumber)
+            {
+                command.Parameters.AddWithValue("@ID", int.Parse(txtbSearch.Text));
+            }
+            else
+            {
+                command.Parameters.AddWithValue("@ItemName", txtbSearch.Text);
+            }
+
+            SqlDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                txtbProductID.Text = reader.GetValue(0).ToString();
+                txtbItemName.Text = reader.GetValue(1).ToString();
+                txtbDesign.Text = reader.GetValue(2).ToString();
+                comboColor.Text = reader.GetValue(3).ToString();
+                //datePickerUpdate.Text = reader.GetValue(4).ToString();
+            }
+            
+            con.Close();
+        }
+
+        private void btnNew_Click(object sender, EventArgs e)
+        {
+            txtbProductID.Text = "";
+            txtbItemName.Text = "";
+            txtbDesign.Text = "";
+            comboColor.Text = "";
+        }
+
+        private void dataGridView1_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (dataGridView1.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != null)
+            {
+                dataGridView1.CurrentRow.Selected = true;
+                txtbProductID.Text = dataGridView1.Rows[e.RowIndex].Cells["ProductID"].FormattedValue.ToString();
+                txtbItemName.Text = dataGridView1.Rows[e.RowIndex].Cells["ItemName"].FormattedValue.ToString();
+                txtbDesign.Text = dataGridView1.Rows[e.RowIndex].Cells["Design"].FormattedValue.ToString();
+                comboColor.Text = dataGridView1.Rows[e.RowIndex].Cells["Color"].FormattedValue.ToString();
+                numUpDownQuantity.Value = Convert.ToDecimal(dataGridView1.Rows[e.RowIndex].Cells["Quantity"].FormattedValue.ToString());
+            }
+        }
+    }
+}
